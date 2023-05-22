@@ -126,7 +126,7 @@ def main(conf):
     if conf.algo == 'IPG':
         ac.compute_loss_pi = functools.partial(core.compute_PG_loss_pi, ac)
     elif conf.algo == 'PPO':
-        ac.compute_loss_pi = functools.partial(core.compute_PPO_loss_pi, ac)
+        ac.compute_loss_pi = functools.partial(core.compute_PPO_loss_pi, ac, clip_ratio=conf.clip_ratio)
     else:
         raise ValueError("Unknown algorithm")
     
@@ -147,7 +147,7 @@ def main(conf):
         data_on = buf_on.get()
         data_off = buf_off.sample_batch(conf.batch_sample_size)
         with torch.no_grad():
-            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, conf.inter_nu, conf.use_cv, True)
+            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, conf.inter_nu, conf.use_cv, plot=True)
             pi_l_old = pi_l_old.item()
             v_l_old = ac.compute_loss_v(data_on).item()
             qf_l_old = ac.compute_loss_qf(data_off, conf.gamma).item()
@@ -322,6 +322,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--algo", type=str, default="IPG",
                         help="algorithm used")
+    
+    # only for PPO
+    parser.add_argument("--clip_ratio", type=float, default=0.2,
+                        help="clip ratio for PPO")
 
     opts = parser.parse_args()
 
