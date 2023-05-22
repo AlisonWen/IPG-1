@@ -2,6 +2,7 @@ from torch.utils.tensorboard import SummaryWriter
 from core import MLPActorCritic, QFunction
 from buffers import ON_BUFFER, OFF_BUFFER
 import torch.nn.functional as F
+from omegaconf import OmegaConf
 from torch.optim import Adam
 from copy import deepcopy
 import gymnasium  as gym
@@ -12,11 +13,6 @@ import torch
 import core
 import time
 import os
-
-def _preproc_input(input_convention):
-    # convert to tensor
-    return torch.as_tensor(input_convention, dtype=torch.float32)
-
 
 def evaluate(env, policy, max_timesteps, n_traj=1):
     print(f"Evaluating for {n_traj} episode(s), with {max_timesteps} time-steps.")
@@ -36,23 +32,23 @@ def evaluate(env, policy, max_timesteps, n_traj=1):
     return sum(rewards) / len(rewards)
 
 
-def soft_update(targ_model, model, tau=0.999):
+def soft_update(targ_model, model, tau=0.001):
     with torch.no_grad():
         for p, p_targ in zip(model.parameters(), targ_model.parameters()):
             # NB: We use an in-place operations "mul_", "add_" to update target
             # params, as opposed to "mul" and "add", which would make new tensors.
-            p_targ.data.mul_(tau)
-            p_targ.data.add_((1.0 - tau) * p.data)
+            p_targ.data.mul_(1.0 - tau)
+            p_targ.data.add_(tau * p.data)
 
 
-def fit_qf(ac, opt, trian_qf_iters, buf_off, batch_size, gamma):
+def fit_qf(ac, opt, trian_qf_iters, buf_off, batch_size, gamma, tau):
     for i in range(trian_qf_iters):
         data_off = buf_off.sample_batch(batch_size)
         opt.zero_grad()
         loss_qf = ac.compute_loss_qf(data_off, gamma)
         loss_qf.backward()
         opt.step()
-        soft_update(ac.qf_targ, ac.qf)
+        soft_update(ac.qf_targ, ac.qf, tau)
 
 
 def fit_vf(ac, opt, train_vf_iters, data_on):
@@ -87,14 +83,14 @@ def fit_pi(ac, opt, data_on, data_off, train_pi_iters, inter_nu, use_cv, beta):
         opt.step()
 
 
-def main(conf):
+def main(conf, hparams):
 
     # logger config
     now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    nowname = conf.exp_name + now
-    if not os.path.isdir(conf.exp_dir):
-        os.mkdir(conf.exp_dir)
-    logdir = os.path.join(conf.exp_dir, nowname)
+    nowname = hparams.exp_name + now
+    if not os.path.isdir(hparams.exp_dir):
+        os.mkdir(hparams.exp_dir)
+    logdir = os.path.join(hparams.exp_dir, nowname)
     if not os.path.isdir(logdir):
         os.mkdir(logdir)
     
@@ -109,12 +105,24 @@ def main(conf):
 
     writer = SummaryWriter(log_dir=tensorboard_dir)
 
+    # dump configuration
+    config_filename = os.path.join(logdir, "config.yaml")
+
+    # unused info
+    hparams.pop('exp_dir')
+    hparams.pop('exp_name')
+
+    # dumps to file
+    config.hparams = hparams
+    with open(config_filename, "w") as f:
+        OmegaConf.save(config, f)
+
     # seeding
-    torch.manual_seed(conf.seed)
-    np.random.seed(conf.seed)
+    torch.manual_seed(hparams.seed)
+    np.random.seed(hparams.seed)
 
     # set up env
-    env = gym.make(conf.env)
+    env = gym.make(hparams.env)
     max_ep_len = env._max_episode_steps
 
     # Set up model
@@ -123,10 +131,12 @@ def main(conf):
     ac = MLPActorCritic(env.observation_space, env.action_space)
 
     # select algorithm
-    if conf.algo == 'IPG':
+    if hparams.algo == 'IPG':
         ac.compute_loss_pi = functools.partial(core.compute_PG_loss_pi, ac)
-    elif conf.algo == 'PPO':
-        ac.compute_loss_pi = functools.partial(core.compute_PPO_loss_pi, ac, clip_ratio=conf.clip_ratio)
+    elif hparams.algo == 'PPO':
+        ac.compute_loss_pi = functools.partial(core.compute_PPO_loss_pi, ac, clip_ratio=hparams.clip_ratio)
+    elif hparams.algo == 'TRPO':
+        ac.compute_loss_pi = functools.partial(core.compute_PG_loss_pi, ac)
     else:
         raise ValueError("Unknown algorithm")
     
@@ -135,24 +145,24 @@ def main(conf):
     print('Number of parameters: \t pi: %d, \t v: %d\n' % var_counts)
 
     #initialize buffers
-    buf_on = ON_BUFFER(obs_dim, act_dim, max_ep_len * conf.num_cycles, conf.gamma, conf.lam)
-    buf_off = OFF_BUFFER(obs_dim=obs_dim, act_dim=act_dim, size=int(conf.off_buffer_size))
+    buf_on = ON_BUFFER(obs_dim, act_dim, max_ep_len * hparams.num_cycles, hparams.gamma, hparams.lam)
+    buf_off = OFF_BUFFER(obs_dim=obs_dim, act_dim=act_dim, size=int(hparams.off_buffer_size))
      
     # Set up optimizers for policy and value function
-    pi_opt = Adam(ac.pi.parameters(), lr=conf.pi_lr)
-    vf_opt = Adam(ac.v.parameters(), lr=conf.vf_lr)
-    qf_opt = Adam(ac.qf.parameters(), lr=conf.qf_lr)
+    pi_opt = Adam(ac.pi.parameters(), lr=hparams.pi_lr)
+    vf_opt = Adam(ac.v.parameters(), lr=hparams.vf_lr)
+    qf_opt = Adam(ac.qf.parameters(), lr=hparams.qf_lr)
 
-    def update():
+    def update(epoch):
         data_on = buf_on.get()
-        data_off = buf_off.sample_batch(conf.batch_sample_size)
+        data_off = buf_off.sample_batch(hparams.batch_sample_size)
         with torch.no_grad():
-            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, conf.inter_nu, conf.use_cv, plot=True)
+            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, hparams.inter_nu, hparams.use_cv, plot=True)
             pi_l_old = pi_l_old.item()
             v_l_old = ac.compute_loss_v(data_on).item()
-            qf_l_old = ac.compute_loss_qf(data_off, conf.gamma).item()
+            qf_l_old = ac.compute_loss_qf(data_off, hparams.gamma).item()
             pi_l_off_old = ac.compute_loss_off_pi(data_off).item()
-            inter_l_old = pi_l_old + conf.inter_nu * pi_l_off_old
+            inter_l_old = pi_l_old + hparams.inter_nu * pi_l_off_old
         eval_reward = evaluate(env, ac, max_ep_len)
 
         # write with tensorbard
@@ -165,36 +175,25 @@ def main(conf):
         writer.add_scalar("Return/Epoch", eval_reward, epoch)
 
         # fit parameter phi of QF  
-        fit_qf(ac, qf_opt, conf.train_qf_iters, buf_off, conf.batch_sample_size, conf.gamma)
+        fit_qf(ac, qf_opt, hparams.train_qf_iters, buf_off, hparams.batch_sample_size, hparams.gamma, hparams.tau)
 
         # freeze q network parameters.
         ac.qf.freeze()
 
         # policy learning
-        fit_pi(ac, pi_opt, data_on, data_off, conf.train_pi_iters, conf.inter_nu, conf.use_cv, conf.beta)
+        fit_pi(ac, pi_opt, data_on, data_off, hparams.train_pi_iters, hparams.inter_nu, hparams.use_cv, hparams.beta)
 
         # Value function learning
-        fit_vf(ac, vf_opt, conf.train_vf_iters, data_on)
+        fit_vf(ac, vf_opt, hparams.train_vf_iters, data_on)
 
-        
         # unfreeze q net params for next iteration
         ac.qf.unfreeze()
-        
-        # write with tensorbard
-        writer.add_scalar("Loss/train (policy)", pi_l_old, epoch)
-        writer.add_scalar("Loss/train (value)", v_l_old, epoch)
-        writer.add_scalar("Loss/train (q function)", qf_l_old, epoch)
-        writer.add_scalar("Loss/train (off policy)", pi_l_off_old, epoch)
-        writer.add_scalar("Loss/train (inter)", inter_l_old, epoch)
-        writer.add_scalar("Return/Epoch", np.array(average_return).mean(), epoch)
-        writer.add_scalar("Return/Epoch", eval_reward, epoch)
-
 
     # Main loop
-    for epoch in range(conf.epochs):
+    for epoch in range(hparams.epochs):
         # collect data
         average_return = []
-        for _ in range(conf.num_cycles):
+        for _ in range(hparams.num_cycles):
             # reset env
             obs, _ = env.reset()
             ep_ret, ep_len = 0, 0
@@ -222,38 +221,30 @@ def main(conf):
                     average_return.append(ep_ret)
 
         # save model
-        if (epoch % conf.save_freq == 0) or (epoch == conf.epochs - 1):
+        if epoch > 0 and ((epoch % hparams.save_freq == 0) or (epoch == hparams.epochs - 1)):
             filename = f'epochs={epoch}.pth'
             torch.save(ac.state_dict(), os.path.join(weight_dir, filename))
 
         # updating model
-        update()
+        update(epoch)
 
+    
 
     writer.close()
             
-                
 
-
-
+        
 if __name__ == '__main__':
     import argparse 
-    
-    """
-    save_freq
-    off_buffer_size
-    local_train_qf_iters
-    """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='HalfCheetah-v4')
-    # parser.add_argument('--env', type=str, default='Ant-v3')
-
-    parser.add_argument('--hid', type=int, default=64,
-                        help="hidden size of the network.")
     
-    parser.add_argument('--l', type=int, default=2,
-                        help="number of layers of the network")
+    parser.add_argument("--config", type=str, default="./configs/base.yaml",
+                        help="the config file for base model class")
+
+    parser.add_argument('--env', type=str, default='HalfCheetah-v4',
+                        help="environment to train on")
+    # parser.add_argument('--env', type=str, default='Ant-v3')
     
     parser.add_argument("--batch_sample_size", type=int, default=64,
                         help="")
@@ -329,10 +320,14 @@ if __name__ == '__main__':
 
     opts = parser.parse_args()
 
-    main(opts)
-    # ppo(lambda: gym.make(args.env), actor_critic=core.MLPActorCritic,
-    #     ac_kwargs=dict(hidden_sizes=[args.hid] * args.l), gamma=args.gamma,
-    #     seed=args.seed, steps_per_epoch=args.steps, train_pi_iters=args.train_pi_iters,
-    #     train_v_iters=args.train_v_iters, train_qf_iters=args.train_qf_iters, epochs=args.epochs, batch_sample_size=64,
-    #     num_cycles=args.num_cycles, num_episodes=args.num_episodes, use_cv=args.use_cv, cv_type=args.cv_type, beta=args.beta,
-    #     inter_nu=args.inter_nu, logger_kwargs=logger_kwargs)
+    # read config
+    config_path = opts.config
+    config = OmegaConf.load(config_path)
+    hparams = config.pop("hparams", OmegaConf.create())
+
+    # overwrite hparams from command prompt
+    hparams_cmd = vars(opts)
+    hparams = OmegaConf.merge(hparams_cmd, hparams)
+    print(config, hparams)
+
+    main(config, hparams)

@@ -1,0 +1,9 @@
+model: 
+  target: core.IPG
+  params: 
+    ac_hidden_sizes: [64, 64]
+    qf_hidden_sizes: [100, 100]
+    vf_hidden_sizes: [64, 64]
+    ac_activation: Tanh
+    qf_activation: ReLU
+    vf_activation: Tanh
