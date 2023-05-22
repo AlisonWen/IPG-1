@@ -121,7 +121,8 @@ class MLPCritic(nn.Module):
 class MLPActorCritic(nn.Module):
 
     def __init__(self, observation_space, action_space,
-                 hidden_sizes=(64, 64), activation=nn.Tanh, env_params=None):
+                 ac_hidden_sizes=(64, 64), qf_hidden_sizes=(64, 64), vf_hidden_sizse=(64, 64),
+                 ac_activation=nn.Tanh, qf_activation=nn.ReLU, vf_activation=nn.Tanh, env_params=None, *args, **kwargs):
         super().__init__()
 
         if env_params:
@@ -129,25 +130,36 @@ class MLPActorCritic(nn.Module):
         else:
             obs_dim = observation_space.shape[0]
 
+        self.obs_dim = obs_dim
+
         # policy builder depends on action space
         if isinstance(action_space, Box):
-            self.pi = MLPGaussianActor(obs_dim, action_space.shape[0], hidden_sizes, activation)
+            self.discrete = False
+            self.act_dim = action_space.shape[0]
+            self.pi = MLPGaussianActor(obs_dim, action_space.shape[0], ac_hidden_sizes, ac_activation)
         elif isinstance(action_space, Discrete):
-            self.pi = MLPCategoricalActor(obs_dim, action_space.n, hidden_sizes, activation)
+            self.discrete = True
+            self.act_dim = action_space.n
+            self.pi = MLPCategoricalActor(obs_dim, action_space.n, ac_hidden_sizes, ac_activation)
         else:
             raise NotImplementedError("Unknown action space")
 
 
         # build value function
-        self.v = MLPCritic(obs_dim, hidden_sizes, activation)
+        self.v = MLPCritic(obs_dim, vf_hidden_sizse, vf_activation)
 
         if env_params:
             obs_dim_qf = env_params['obs'] + env_params['goal'] + env_params['action']
         else:
-            obs_dim_qf = observation_space.shape[0] + action_space.shape[0]
+            if isinstance(action_space, Box):
+                obs_dim_qf = observation_space.shape[0] + action_space.shape[0]
+            else:
+                obs_dim_qf = observation_space.shape[0] + action_space.n
         # build q function
-        self.qf = QFunction(obs_dim_qf)
-        self.qf_targ = QFunction(obs_dim_qf)
+
+
+        self.qf = QFunction(obs_dim_qf, qf_hidden_sizes, qf_activation)
+        self.qf_targ = QFunction(obs_dim_qf, qf_hidden_sizes, qf_activation)
         
         # copy params from qf to qf_targ
         for targ_param, param in zip(self.qf_targ.parameters(), self.qf.parameters()):
@@ -155,14 +167,23 @@ class MLPActorCritic(nn.Module):
         # freeze qf_targ
         self.qf_targ.freeze()
 
+    @torch.no_grad()
     def step(self, obs):
-        with torch.no_grad():
-            pi = self.pi._distribution(obs) #distribution with mu and std
-            a = pi.sample() #sample action from this distribution
+        if isinstance(self.pi, MLPGaussianActor):
+            pi = self.pi._distribution(obs) # distribution with mu and std
+            a = pi.sample() # sample action from this distribution
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
             mean, std = self.pi._get_mean_sigma(obs)
-        return a.numpy(), v.numpy(), logp_a.numpy(), mean.numpy(), std.numpy()
+            return a.numpy(), v.numpy(), logp_a.numpy(), mean.numpy(), std.numpy()
+        else:
+            with torch.no_grad():
+                pi = self.pi._distribution(obs)  # categorical distribution
+                a = pi.sample() # sample action from this distribution
+                logp_a = self.pi._log_prob_from_distribution(pi, a)
+                v = self.v(obs)
+            return a.numpy(), v.numpy(), logp_a.numpy()
+
 
     def act(self, obs):
         return self.step(obs)[0]
@@ -171,6 +192,9 @@ class MLPActorCritic(nn.Module):
         obs = data['obs']
         if isinstance(self.pi, MLPCategoricalActor):
             mu = self.pi.logits_net(obs)
+            # use action with maximum probability?
+            mu = F.one_hot(torch.argmax(mu, dim=-1), num_classes=self.act_dim).float()
+            
         else:
             mu = self.pi.mu_net(obs)
         off_loss = self.qf(obs, mu)
@@ -182,7 +206,9 @@ class MLPActorCritic(nn.Module):
     
     def compute_loss_qf(self, data, gamma):
         obs, act, r, obs_next, dones = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
-        q_value_real = self.qf(obs, torch.as_tensor(act, dtype=torch.float32))
+        if self.discrete:
+            act = F.one_hot(act.long(), num_classes=self.act_dim).float()
+        q_value_real = self.qf(obs, act)
         with torch.no_grad():
             # TODO: policy target?
             # act_next, _, _, _, _ = ac.step(obs_next) #this samples an action from a distribution
@@ -190,6 +216,9 @@ class MLPActorCritic(nn.Module):
                 act_next = self.pi.mu_net(obs_next) #this gets the mean of the distribution, corresponding to a deterministic action
             else:
                 act_next = self.pi.logits_net(obs_next) 
+                # use action with maximum probability?
+                act_next = F.one_hot(torch.argmax(act_next, dim=-1), num_classes=self.act_dim).float()
+
             q_next_value = self.qf_targ(obs_next, act_next)
             q_next_value = q_next_value.detach()  # detach tensor from graph
             # Bellman backup for Q function
@@ -287,7 +316,7 @@ def compute_PG_loss_pi(self, data, inter_nu, use_cv, plot=False):
     # Policy loss
     pi, logp = self.pi(obs, act)  # pi is a distribution
 
-    return (-logp * adv * learning_signals).sum(), dict()
+    return -(logp * adv * learning_signals).sum(), dict()
     
 
 # Set up function for computing TRPO policy loss

@@ -21,7 +21,10 @@ def evaluate(env, policy, max_timesteps, n_traj=1):
         o, _ = env.reset()
         d, ep_ret, ep_len = False, 0, 0
         while not (d or (ep_len == max_timesteps)):
-            a, _, _, _, _ = policy.step(torch.as_tensor(o, dtype=torch.float32))
+            if policy.discrete:
+                a, _, _ = policy.step(torch.as_tensor(o, dtype=torch.float32))
+            else:
+                a, _, _, _, _ = policy.step(torch.as_tensor(o, dtype=torch.float32))
             #use mu_net for evaluation??
             o, r, ter, tru, _ = env.step(a)
             d = ter or tru
@@ -113,9 +116,9 @@ def main(conf, hparams):
     hparams.pop('exp_name')
 
     # dumps to file
-    config.hparams = hparams
+    conf.hparams = hparams
     with open(config_filename, "w") as f:
-        OmegaConf.save(config, f)
+        OmegaConf.save(conf, f)
 
     # seeding
     torch.manual_seed(hparams.seed)
@@ -128,7 +131,7 @@ def main(conf, hparams):
     # Set up model
     obs_dim = env.observation_space.shape
     act_dim = env.action_space.shape
-    ac = MLPActorCritic(env.observation_space, env.action_space)
+    ac = MLPActorCritic(env.observation_space, env.action_space, **conf.model.params)
 
     # select algorithm
     if hparams.algo == 'IPG':
@@ -198,7 +201,10 @@ def main(conf, hparams):
             obs, _ = env.reset()
             ep_ret, ep_len = 0, 0
             for t in range(max_ep_len):
-                a, v, logp, mean, std = ac.step(torch.as_tensor(obs, dtype=torch.float32)) 
+                if ac.discrete:
+                    a, v, logp = ac.step(torch.as_tensor(obs, dtype=torch.float32)) 
+                else:
+                    a, v, logp, mean, std = ac.step(torch.as_tensor(obs, dtype=torch.float32)) 
                 next_obs, r, terminated, truncated, _ = env.step(a)
                 d = terminated or truncated
                 
@@ -213,7 +219,10 @@ def main(conf, hparams):
 
                 if d:
                     if truncated:
-                        _, v, _, _, _ = ac.step(torch.as_tensor(obs, dtype=torch.float32))
+                        if ac.discrete:
+                            _, v, _ = ac.step(torch.as_tensor(obs, dtype=torch.float32))
+                        else:
+                            _, v, _, _, _ = ac.step(torch.as_tensor(obs, dtype=torch.float32))
                     else:
                         v = 0
                     buf_on.finish_path(v)  # computes GAE after episode is done, we want this after all the gather
@@ -328,6 +337,5 @@ if __name__ == '__main__':
     # overwrite hparams from command prompt
     hparams_cmd = vars(opts)
     hparams = OmegaConf.merge(hparams_cmd, hparams)
-    print(config, hparams)
 
     main(config, hparams)
