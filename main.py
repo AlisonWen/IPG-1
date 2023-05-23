@@ -1,17 +1,15 @@
 from torch.utils.tensorboard import SummaryWriter
-from core import MLPActorCritic, QFunction
 from buffers import ON_BUFFER, OFF_BUFFER
-import torch.nn.functional as F
+from utils import normal_log_density
+from core import MLPActorCritic
 from omegaconf import OmegaConf
 from torch.optim import Adam
-from copy import deepcopy
 import gymnasium  as gym
 import numpy as np
 import functools
 import datetime
 import torch
 import core
-import time
 import os
 
 def evaluate(env, policy, max_timesteps, n_traj=1):
@@ -135,11 +133,14 @@ def main(conf, hparams):
 
     # select algorithm
     if hparams.algo == 'IPG':
-        ac.compute_loss_pi = functools.partial(core.compute_PG_loss_pi, ac)
+        from algorithm.pg import compute_PG_loss_pi
+        ac.compute_loss_pi = functools.partial(compute_PG_loss_pi, ac)
     elif hparams.algo == 'PPO':
-        ac.compute_loss_pi = functools.partial(core.compute_PPO_loss_pi, ac, clip_ratio=hparams.clip_ratio)
+        from algorithm.ppo import compute_PPO_loss_pi
+        ac.compute_loss_pi = functools.partial(compute_PPO_loss_pi, ac, clip_ratio=hparams.clip_ratio)
     elif hparams.algo == 'TRPO':
-        ac.compute_loss_pi = functools.partial(core.compute_PG_loss_pi, ac)
+        from algorithm.trpo import compute_TRPO_loss_pi
+        ac.compute_loss_pi = functools.partial(compute_TRPO_loss_pi, ac)
     else:
         raise ValueError("Unknown algorithm")
     
@@ -152,7 +153,9 @@ def main(conf, hparams):
     buf_off = OFF_BUFFER(obs_dim=obs_dim, act_dim=act_dim, size=int(hparams.off_buffer_size))
      
     # Set up optimizers for policy and value function
-    pi_opt = Adam(ac.pi.parameters(), lr=hparams.pi_lr)
+    if hparams.algo != 'TRPO':
+        pi_opt = Adam(ac.pi.parameters(), lr=hparams.pi_lr)
+
     vf_opt = Adam(ac.v.parameters(), lr=hparams.vf_lr)
     qf_opt = Adam(ac.qf.parameters(), lr=hparams.qf_lr)
 
@@ -160,22 +163,22 @@ def main(conf, hparams):
         data_on = buf_on.get()
         data_off = buf_off.sample_batch(hparams.batch_sample_size)
         with torch.no_grad():
-            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, hparams.inter_nu, hparams.use_cv, plot=True)
-            pi_l_old = pi_l_old.item()
             v_l_old = ac.compute_loss_v(data_on).item()
             qf_l_old = ac.compute_loss_qf(data_off, hparams.gamma).item()
             pi_l_off_old = ac.compute_loss_off_pi(data_off).item()
+            pi_l_old, pi_info_old = ac.compute_loss_pi(data_on, hparams.inter_nu, hparams.use_cv, plot=True)
+            pi_l_old = pi_l_old.item()
             inter_l_old = pi_l_old + hparams.inter_nu * pi_l_off_old
         eval_reward = evaluate(env, ac, max_ep_len)
 
         # write with tensorbard
         writer.add_scalar("Loss/train (policy)", pi_l_old, epoch)
+        writer.add_scalar("Loss/train (inter)", inter_l_old, epoch)
         writer.add_scalar("Loss/train (value)", v_l_old, epoch)
         writer.add_scalar("Loss/train (q function)", qf_l_old, epoch)
         writer.add_scalar("Loss/train (off policy)", pi_l_off_old, epoch)
-        writer.add_scalar("Loss/train (inter)", inter_l_old, epoch)
         writer.add_scalar("Return/Epoch", np.array(average_return).mean(), epoch)
-        writer.add_scalar("Return/Epoch", eval_reward, epoch)
+        writer.add_scalar("Return/Epoch(eval)", eval_reward, epoch)
 
         # fit parameter phi of QF  
         fit_qf(ac, qf_opt, hparams.train_qf_iters, buf_off, hparams.batch_sample_size, hparams.gamma, hparams.tau)
@@ -184,7 +187,14 @@ def main(conf, hparams):
         ac.qf.freeze()
 
         # policy learning
-        fit_pi(ac, pi_opt, data_on, data_off, hparams.train_pi_iters, hparams.inter_nu, hparams.use_cv, hparams.beta)
+        if hparams.algo != 'TRPO':
+            fit_pi(ac, pi_opt, data_on, data_off, hparams.train_pi_iters, hparams.inter_nu, hparams.use_cv, hparams.beta)
+        else:
+            # trpo update is different from other updates
+            from algorithm.trpo import trpo_update
+            for _ in range(hparams.train_pi_iters):
+                trpo_update(ac, data_on, data_off, hparams.inter_nu, hparams.use_cv, hparams.beta, hparams.max_kl, hparams.damping)
+
 
         # Value function learning
         fit_vf(ac, vf_opt, hparams.train_vf_iters, data_on)
@@ -236,8 +246,6 @@ def main(conf, hparams):
 
         # updating model
         update(epoch)
-
-    
 
     writer.close()
             
@@ -326,6 +334,14 @@ if __name__ == '__main__':
     # only for PPO
     parser.add_argument("--clip_ratio", type=float, default=0.2,
                         help="clip ratio for PPO")
+
+    # only for TRPO
+    parser.add_argument("--max_kl", type=float, default=1e-2, 
+                        help="max kl for TRPO")
+    
+    parser.add_argument("--damping", type=float, default=1e-1,
+                        help="damping for TRPO")
+
 
     opts = parser.parse_args()
 
