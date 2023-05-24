@@ -191,11 +191,15 @@ class MLPActorCritic(nn.Module):
     def compute_loss_off_pi(self, data):
         obs = data['obs']
         if isinstance(self.pi, MLPCategoricalActor):
-            mu = self.pi.logits_net(obs)
+            pi = self.pi._distribution(obs) 
+            mu = pi.sample()
             # use action with maximum probability?
-            mu = F.one_hot(torch.argmax(mu, dim=-1), num_classes=self.act_dim).float()
+            mu = F.one_hot(mu.long(), num_classes=self.act_dim).float()
             
         else:
+            # use mean ?
+            # pi = self.pi._distribution(obs)
+            # mu = pi.sample()
             mu = self.pi.mu_net(obs)
         off_loss = self.qf(obs, mu)
         return -(off_loss).mean()
@@ -211,9 +215,9 @@ class MLPActorCritic(nn.Module):
         q_value_real = self.qf(obs, act)
         with torch.no_grad():
             # TODO: policy target?
-            # act_next, _, _, _, _ = ac.step(obs_next) #this samples an action from a distribution
+            # act_next, _, _, _, _ = ac.step(obs_next) # this samples an action from a distribution
             if isinstance(self.pi, MLPGaussianActor):
-                act_next = self.pi.mu_net(obs_next) #this gets the mean of the distribution, corresponding to a deterministic action
+                act_next = self.pi.mu_net(obs_next) # this gets the mean of the distribution, corresponding to a deterministic action
             else:
                 act_next = self.pi.logits_net(obs_next) 
                 # use action with maximum probability?

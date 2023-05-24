@@ -183,8 +183,8 @@ def main(conf, hparams):
         # fit parameter phi of QF  
         fit_qf(ac, qf_opt, hparams.train_qf_iters, buf_off, hparams.batch_sample_size, hparams.gamma, hparams.tau)
 
-        # freeze q network parameters.
-        ac.qf.freeze()
+        # freeze q network parameters
+        # ac.qf.freeze()
 
         # policy learning
         if hparams.algo != 'TRPO':
@@ -200,7 +200,7 @@ def main(conf, hparams):
         fit_vf(ac, vf_opt, hparams.train_vf_iters, data_on)
 
         # unfreeze q net params for next iteration
-        ac.qf.unfreeze()
+        # ac.qf.unfreeze()
 
     # Main loop
     for epoch in range(hparams.epochs):
