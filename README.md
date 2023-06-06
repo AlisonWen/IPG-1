@@ -26,7 +26,6 @@ Var(X^*) & =  Var(X) + c^2Var(Y) + 2cCov(X, Y) \\
  & = [1 - Var(X) + \frac{Cov(X, Y)^2}{Var(X)Var(Y)}]Var(X) \\
  & = (1 - \rho_{XY})Var(X)
 \end{align*}
-
 $$
 
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
