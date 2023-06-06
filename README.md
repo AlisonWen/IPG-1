@@ -12,7 +12,8 @@ interpolated policy gradient for my RL course final project
 #### Q-prop Algorithm
 
 ##### Control Variate
-
+- $Cov(X, Y) = E[(X-\mu_X)(Y-\mu_Y)]$
+- 
 
 
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
