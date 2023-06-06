@@ -27,3 +27,5 @@ Use Taylor Expansion of the off policy critic as a control variate to reduce hig
 
 Code:
 https://github.com/brain-research/mirage-rl-qprop/blob/9717d88ccc37062c15e19c7f9f1e6fb4dcf7a371/rllab/sampler/base.py#L103
+
+https://github.com/HarveyYan/RL-Robotic-Control
