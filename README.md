@@ -14,7 +14,7 @@ interpolated policy gradient for my RL course final project
 ##### Control Variate
 - Covariance of random variables $X$ and $Y$ : $Cov(X, Y) = E[(X-\mu_X)(Y-\mu_Y)]$
 - Correlation coefficient of $X$, $Y$ : $\rho_{XY} = \frac{\sum (X-\mu_X)(Y-\mu_Y)}{\sqrt{\sum(X-\mu_X)^2\sum(Y-\mu_Y)^2}}$
-
+The combination of $X$ and $Y$ with minimal variance is $X - \frac{Cov(X, Y)}{Var()Y}(Y - \mu_Y)$ 
 
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
 <img width="1138" alt="image" src="https://github.com/mmi366127/IPG/assets/77866896/410c7ae7-49cb-4977-9d29-81153cc204a5">
