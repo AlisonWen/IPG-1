@@ -19,7 +19,14 @@ The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$
 
 ![image](https://github.com/mmi366127/IPG/assets/77866896/b274d939-1eae-46a0-8861-47ec8a63227e)
 
-![\Large x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}](https://latex.codecogs.com/svg.latex?\Large&space;\begin{align*}
+![\Large \begin{align*}
+Var(X^*) & =  Var(X) + c^2Var(Y) + 2cCov(X, Y) \\
+ & = Var(X) + (-\frac{Cov(X, Y)}{Var(Y)})^2Var(Y) + 2(-\frac{Cov(X, Y)}{Var()Y})Cov(X, Y) \\
+ & = Var(X) + \frac{Cov(X, Y)^2}{Var(Y)} - 2\frac{Cov(X, Y)^2}{Var(Y)} \\
+ & = Var(X) - \frac{Cov(X, Y)^2}{Var(Y)} \\ 
+ & = [1 - Var(X) + \frac{Cov(X, Y)^2}{Var(X)Var(Y)}]Var(X) \\
+ & = (1 - \rho_{XY})Var(X)
+\end{align*}](https://latex.codecogs.com/svg.latex?\Large&space;\begin{align*}
 Var(X^*) & =  Var(X) + c^2Var(Y) + 2cCov(X, Y) \\
  & = Var(X) + (-\frac{Cov(X, Y)}{Var(Y)})^2Var(Y) + 2(-\frac{Cov(X, Y)}{Var()Y})Cov(X, Y) \\
  & = Var(X) + \frac{Cov(X, Y)^2}{Var(Y)} - 2\frac{Cov(X, Y)^2}{Var(Y)} \\
