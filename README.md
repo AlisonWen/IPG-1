@@ -15,7 +15,7 @@ interpolated policy gradient for my RL course final project
 - Covariance of random variables $X$ and $Y$ : $Cov(X, Y) = E[(X-\mu_X)(Y-\mu_Y)]$
 - Correlation coefficient of $X$, $Y$ : $\rho_{XY} = \frac{\sum (X-\mu_X)(Y-\mu_Y)}{\sqrt{\sum(X-\mu_X)^2\sum(Y-\mu_Y)^2}}$
 
-The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$, and $c$ being $c = -\frac{Cov(X, Y)}{Var(Y)}$ and the variance is $Var(X^*) = Var(X) + c^2Var(Y) + 2cCov(X, Y)$
+The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$, where $c = -\frac{Cov(X, Y)}{Var(Y)}$ and the variance is $Var(X^*) = Var(X) + c^2Var(Y) + 2cCov(X, Y)$
 
 ![image](https://github.com/mmi366127/IPG/assets/77866896/b274d939-1eae-46a0-8861-47ec8a63227e)
 
