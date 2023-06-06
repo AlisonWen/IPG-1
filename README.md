@@ -17,16 +17,7 @@ interpolated policy gradient for my RL course final project
 
 The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$, where $c = -\frac{Cov(X, Y)}{Var()Y}$ and the variance is $Var(X^*) = Var(X) + c^2Var(Y) + 2cCov(X, Y)$
 
-\begin{equation}
-\begin{align*}
-Var(X^*) & =  Var(X) + c^2Var(Y) + 2cCov(X, Y) \\
- & = Var(X) + (-\frac{Cov(X, Y)}{Var(Y)})^2Var(Y) + 2(-\frac{Cov(X, Y)}{Var()Y})Cov(X, Y) \\
- & = Var(X) + \frac{Cov(X, Y)^2}{Var(Y)} - 2\frac{Cov(X, Y)^2}{Var(Y)} \\
- & = Var(X) - \frac{Cov(X, Y)^2}{Var(Y)} \\ 
- & = [1 - Var(X) + \frac{Cov(X, Y)^2}{Var(X)Var(Y)}]Var(X) \\
- & = (1 - \rho_{XY})Var(X)
-\end{align*}
-\end{equation}
+![image](https://github.com/mmi366127/IPG/assets/77866896/b0666ba2-9f8e-484e-9bce-e6adb172e39f)
 
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
 <img width="1138" alt="image" src="https://github.com/mmi366127/IPG/assets/77866896/410c7ae7-49cb-4977-9d29-81153cc204a5">
