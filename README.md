@@ -21,7 +21,8 @@ The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$
 
 
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
-<img width="1138" alt="image" src="https://github.com/mmi366127/IPG/assets/77866896/410c7ae7-49cb-4977-9d29-81153cc204a5">
+<img width="1061" alt="image" src="https://github.com/mmi366127/IPG/assets/77866896/5ce5f1da-7b6b-4bec-a3f7-8f4cc171ab6b">
+
 
 
 Code:
