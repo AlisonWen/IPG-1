@@ -19,6 +19,15 @@ The combination of $X$ and $Y$ with minimal variance is $X^* = X + c(Y - \mu_Y)$
 
 ![image](https://github.com/mmi366127/IPG/assets/77866896/b274d939-1eae-46a0-8861-47ec8a63227e)
 
+![\Large x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}](https://latex.codecogs.com/svg.latex?\Large&space;\begin{align*}
+Var(X^*) & =  Var(X) + c^2Var(Y) + 2cCov(X, Y) \\
+ & = Var(X) + (-\frac{Cov(X, Y)}{Var(Y)})^2Var(Y) + 2(-\frac{Cov(X, Y)}{Var()Y})Cov(X, Y) \\
+ & = Var(X) + \frac{Cov(X, Y)^2}{Var(Y)} - 2\frac{Cov(X, Y)^2}{Var(Y)} \\
+ & = Var(X) - \frac{Cov(X, Y)^2}{Var(Y)} \\ 
+ & = [1 - Var(X) + \frac{Cov(X, Y)^2}{Var(X)Var(Y)}]Var(X) \\
+ & = (1 - \rho_{XY})Var(X)
+\end{align*})
+
 Use Taylor Expansion of the off policy critic as a control variate to reduce high variance.
 <img width="1138" alt="image" src="https://github.com/mmi366127/IPG/assets/77866896/410c7ae7-49cb-4977-9d29-81153cc204a5">
 
