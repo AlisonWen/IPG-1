@@ -17,4 +17,4 @@ def compute_PG_loss_pi(self, data, inter_nu, use_cv, plot=False):
     # Policy loss
     pi, logp = self.pi(obs, act)  # pi is a distribution
 
-    return -(logp * adv * learning_signals).sum(), dict()
+    return -(logp * learning_signals).mean(), dict()

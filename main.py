@@ -263,7 +263,7 @@ if __name__ == '__main__':
                         help="environment to train on")
     # parser.add_argument('--env', type=str, default='Ant-v3')
     
-    parser.add_argument("--batch_sample_size", type=int, default=64,
+    parser.add_argument("--batch_sample_size", type=int, default=5000,
                         help="")
     
     parser.add_argument('--gamma', type=float, default=0.99,
@@ -278,10 +278,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', '-s', type=int, default=69,
                         help="seed for random generator")
       
-    parser.add_argument('--epochs', type=int, default=250,
+    parser.add_argument('--epochs', type=int, default=3000,
                         help="number of epochs to run")
      
-    parser.add_argument('--num_cycles', type=int, default=4,
+    parser.add_argument('--num_cycles', type=int, default=1,
                         help="number of cycles to run in one epoch")
     
     parser.add_argument('--use_cv', action="store_true",
@@ -295,13 +295,13 @@ if __name__ == '__main__':
                         help='determines sampling for off-policy loss. '
                              'Possible values: "off_policy_sampling", "on_policy_sampling"')
     
-    parser.add_argument('--train_pi_iters', type=int, default=80,
+    parser.add_argument('--train_pi_iters', type=int, default=5,
                         help="number of steps to update the actor in one update")  # default 80 for all of them
     
-    parser.add_argument('--train_vf_iters', type=int, default=80,
+    parser.add_argument('--train_vf_iters', type=int, default=5,
                         help="number of steps to update the critic in one update")
     
-    parser.add_argument('--train_qf_iters', type=int, default=4000,
+    parser.add_argument('--train_qf_iters', type=int, default=100,
                         help="number of steps to update the Q function in one update")  # same as batch size of on-policy collection
     
     parser.add_argument("--off_buffer_size", type=int, default=1000000,
@@ -316,16 +316,16 @@ if __name__ == '__main__':
     parser.add_argument('--exp_dir', type=str, default='./exp',
                         help="the directory for the experiment")
     
-    parser.add_argument("--pi_lr", type=float, default=3e-4,
+    parser.add_argument("--pi_lr", type=float, default=1e-3,
                         help="learning rate for the policy")
     
     parser.add_argument("--vf_lr", type=float, default=1e-3,
                         help="learning rate for the value function")
     
-    parser.add_argument("--qf_lr", type=float, default=1e-3,
+    parser.add_argument("--qf_lr", type=float, default=1e-2,
                         help="learning rate for the Q-function")
     
-    parser.add_argument("--save_freq", type=int, default=10,
+    parser.add_argument("--save_freq", type=int, default=1000,
                         help="save frequency")
 
     parser.add_argument("--algo", type=str, default="IPG",

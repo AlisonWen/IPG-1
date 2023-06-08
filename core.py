@@ -198,9 +198,9 @@ class MLPActorCritic(nn.Module):
             
         else:
             # use mean ?
-            # pi = self.pi._distribution(obs)
-            # mu = pi.sample()
-            mu = self.pi.mu_net(obs)
+            pi = self.pi._distribution(obs)
+            mu = pi.sample()
+            # mu = self.pi.mu_net(obs)
         off_loss = self.qf(obs, mu)
         return -(off_loss).mean()
         

@@ -31,6 +31,7 @@ class OFF_BUFFER:
         self.size = min(self.size+1, self.max_size)
 
     def sample_batch(self, batch_size=32):
+        batch_size = min(self.size, batch_size)
         idxs = np.random.randint(0, self.size, size=batch_size)
         batch = dict(obs=self.obs_buf[idxs],
                      obs2=self.obs2_buf[idxs],

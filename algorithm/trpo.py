@@ -83,9 +83,9 @@ def kl_div_categorical(dist_0, dist_1):
     return (dist_0 * (dist_0.log() - dist_1.log()))
 
 
-def surrogate_loss(new_log_prob, old_log_prob, adv, learning_signal=1.0):
+def surrogate_loss(new_log_prob, old_log_prob, learning_signal):
     # the surrogate function L_{\pi_{\theta_k}} 
-    return -(torch.exp(new_log_prob - old_log_prob) * adv * learning_signal).mean()
+    return -(torch.exp(new_log_prob - old_log_prob) * learning_signal).mean()
 
 
 # Set up function for TRPO update
@@ -171,10 +171,10 @@ def trpo_update(ac, data_on, data_off, inter_nu, use_cv, beta, max_kl, damping):
                 stds = torch.exp(log_stds)
             
             log_prob = normal_log_density(act, pi, log_stds, stds)
-            return surrogate_loss(log_prob, fixed_log_prob, adv).detach()
+            return surrogate_loss(log_prob, fixed_log_prob, learning_signals).detach()
         
 
-        loss = surrogate_loss(log_prob, fixed_log_prob, adv)
+        loss = surrogate_loss(log_prob, fixed_log_prob, learning_signals)
         grad_loss = torch.autograd.grad(loss, ac.pi.parameters(), retain_graph=True)
         flat_grad_loss = torch.cat([grad.view(-1) for grad in grad_loss]).detach()
         print(flat_grad_loss.shape)
