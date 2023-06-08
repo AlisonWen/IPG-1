@@ -195,12 +195,9 @@ class MLPActorCritic(nn.Module):
             mu = pi.sample()
             # use action with maximum probability?
             mu = F.one_hot(mu.long(), num_classes=self.act_dim).float()
-            
         else:
-            # use mean ?
-            pi = self.pi._distribution(obs)
-            mu = pi.sample()
-            # mu = self.pi.mu_net(obs)
+            # off policy deterministic policy gradient
+            mu = self.pi.mu_net(obs)
         off_loss = self.qf(obs, mu)
         return -(off_loss).mean()
         

@@ -278,7 +278,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', '-s', type=int, default=69,
                         help="seed for random generator")
       
-    parser.add_argument('--epochs', type=int, default=3000,
+    parser.add_argument('--epochs', type=int, default=5000,
                         help="number of epochs to run")
      
     parser.add_argument('--num_cycles', type=int, default=1,

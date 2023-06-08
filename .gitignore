@@ -155,7 +155,11 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# experiment script
 run_exp.sh
+
+# parameter tuning folder
+/test
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
