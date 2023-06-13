@@ -1,4 +1,4 @@
-This is the modified code of https://github.com/HarveyYan/RL-Robotic-Control
+This is the modified project of https://github.com/HarveyYan/RL-Robotic-Control
 # RL-Robotic-Control
 
 This repo aims to reproduce the *Q-PROP* algorithm based on an on-policy *Proximal Policy Optimization* method and an off-policy *Deep Deterministic Policy Gradient* method, as a part of McGIll COMP767 course project.
