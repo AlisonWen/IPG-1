@@ -1,6 +1,7 @@
 # IPG
 interpolated policy gradient for my RL course final project
 
+slides : https://hackmd.io/@kBcUQuNKSQKpa1_ZlUZhCw/HkmeljRUn
 
 ## Usage
 ``python main.py [args]``
